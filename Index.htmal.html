@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Mockup Generator</title>
+    <style>
+        /* Reset and Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        /* Main Container */
+        .mockup-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        /* Header Styles */
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+        }
+
+        /* Toolbar Styles */
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .btn:hover {
+            background: #45a049;
+        }
+
+        .btn:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .template-select {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-width: 200px;
+        }
+
+        /* Workspace Styles */
+        .workspace {
+            width: 100%;
+            height: 500px;
+            border: 3px dashed #ddd;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            background: #fafafa;
+            margin-bottom: 20px;
+            transition: border-color 0.3s;
+        }
+
+        .workspace.drag-over {
+            border-color: #4CAF50;
+        }
+
+        /* Upload Area */
+        .upload-area {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            width: 80%;
+            color: #666;
+        }
+
+        .upload-area p {
+            margin: 10px 0;
+        }
+
+        /* Preview Area */
+        .preview-area {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .preview-area img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        /* Loading Spinner */
+        .loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #4CAF50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Message Styles */
+        .message {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 4px;
+            color: white;
+            display: none;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .message.success {
+            background: #4CAF50;
+        }
+
+        .message.error {
+            background: #f44336;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(100px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .toolbar {
+                flex-direction: column;
+            }
+
+            .btn, .template-select {
+                width: 100%;
+            }
+
+            .workspace {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="mockup-container">
+        <div class="header">
+            <h1>Product Mockup Generator</h1>
+            <p>Upload your design and create beautiful product mockups</p>
+        </div>
+
+        <div class="toolbar">
+            <button class="btn" id="uploadBtn">Upload Design</button>
+            <select class="template-select" id="templateSelect">
+                <option value="">Choose Template</option>
+                <option value="tshirt">T-Shirt</option>
+                <option value="mug">Coffee Mug</option>
+                <option value="poster">Poster</option>
+                <option value="phone">Phone Case</option>
+                <option value="hoodie">Hoodie</option>
+                <option value="canvas">Canvas</option>
+            </select>
+            <button class="btn" id="generateBtn" disabled>Generate Mockup</button>
+            <button class="btn" id="downloadBtn" disabled>Download</button>
+        </div>
+
+        <div class="workspace" id="workspace">
+            <div class="upload-area" id="uploadArea">
+                <p>Drag and drop your design here</p>
+                <p>or</p>
+                <button class="btn">Choose File</button>
+            </div>
+            <div class="preview-area" id="previewArea"></div>
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+            </div>
+        </div>
+
+        <div class="message" id="message"></div>
+    </div>
+
+    <script>
+        class MockupGenerator {
+            constructor() {
+                this.initElements();
+                this.initEventListeners();
+                this.currentDesign = null;
+                this.currentTemplate = null;
+            }
+
+            initElements() {
+                this.uploadBtn = document.getElementById('uploadBtn');
+                this.templateSelect = document.getElementById('templateSelect');
+                this.generateBtn = document.getElementById('generateBtn');
+                this.downloadBtn = document.getElementById('downloadBtn');
+                this.workspace = document.getElementById('workspace');
+                this.uploadArea = document.getElementById('uploadArea');
+                this.previewArea = document.getElementById('previewArea');
+                this.loading = document.getElementById('loading');
+                this.message = document.getElementById('message');
+            }
+
+            initEventListeners() {
+                this.uploadBtn.addEventListener('click', () => this.handleUpload());
+                this.templateSelect.addEventListener('change', (e) => this.handleTemplateChange(e));
+                this.generateBtn.addEventListener('click', () => this.generateMockup());
+                this.downloadBtn.addEventListener('click', () => this.downloadMockup());
+                this.setupDragAndDrop();
+            }
+
+            setupDragAndDrop() {
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    this.workspace.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    });
+                });
+
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    this.workspace.addEventListener(eventName, () => {
+                        this.workspace.classList.add('drag-over');
+                    });
+                });
+
+                ['dragleave', 'drop'].forEach(eventName => {
+                    this.workspace.addEventListener(eventName, () => {
+                        this.workspace.classList.remove('drag-over');
+                    });
+                });
+
+                this.workspace.addEventListener('drop', (e) => {
+                    const file = e.dataTransfer.files[0];
+                    if (file && file.type.startsWith('image/')) {
+                        this.handleFile(file);
+                    } else {
+                        this.showMessage('Please drop an image file', 'error');
+                    }
+                });
+            }
+
+            handleUpload() {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        this.handleFile(file);
+                    }
+                };
+                input.click();
+            }
+
+            handleFile(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.currentDesign = e.target.result;
+                    this.showPreview(this.currentDesign);
+                    this.uploadArea.style.display = 'none';
+                    this.updateButtons();
+                };
+                reader.readAsDataURL(file);
+            }
+
+            handleTemplateChange(event) {
+                this.currentTemplate = event.target.value;
+                this.updateButtons();
+            }
+
+            showPreview(imageUrl) {
+                this.previewArea.innerHTML = `<img src="${imageUrl}" alt="Preview">`;
+            }
+
+            generateMockup() {
+                this.showLoading(true);
+                // Simulate mockup generation
+                setTimeout(() => {
+                    this.showLoading(false);
+                    this.downloadBtn.disabled = false;
+                    this.showMessage('Mockup generated successfully!', 'success');
+                }, 2000);
+            }
+
+            downloadMockup() {
+                const link = document.createElement('a');
+                link.href = this.currentDesign;
+                link.download = `mockup-${Date.now()}.png`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            updateButtons() {
+                this.generateBtn.disabled = !(this.currentDesign && this.currentTemplate);
+                this.downloadBtn.disabled = true;
+            }
+
+            showLoading(show) {
+                this.loading.style.display = show ? 'flex' : 'none';
+            }
+
+            showMessage(text, type) {
+                this.message.textContent = text;
+                this.message.className = `message ${type}`;
+                this.message.style.display = 'block';
+                setTimeout(() => {
+                    this.message.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', () => {
+            new MockupGenerator();
+        });
+    </script>
+</body>
+</html>
